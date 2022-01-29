@@ -47,6 +47,9 @@ class ProtectedUsers:
 	def __iter__(self):
 		return (e for e in self.users)
 
+	def __len__(self):
+		return len(self.users)
+
 def collect_protected_users(bot, protected_users):
 
 	print("scanning for users to protect...")
@@ -73,22 +76,34 @@ def counter_propaganda(bot, protected_users):
 	print("scanning for propaganda...")
 	start_time = time()
 	comments_checked = 0
+	replies_checked = 0
 
-	for user in protected_users:
+	for n, user in enumerate(protected_users, 1):
 		
+		print(f"checking user {user} {n}/{len(protected_users)}")
 		redditor = praw.models.Redditor(bot, user)
 
 		try:
-			for comment in redditor.comments.all():
+			for comment in redditor.comments.top("week"):
+
+				comments_checked += 1
+				comment.reply_sort = "new"
+
+				try:
+					comment.refresh()
+
+				except praw.exceptions.ClientException:
+					continue
+				
 				for reply in comment.replies:
-					comments_checked += 1
+					replies_checked += 1
 					if is_comment_propaganda(reply.body.lower()):
 						print(f"detected propaganda: {reply.body}")
 
 		except prawcore.exceptions.Forbidden:
 			continue
 
-	print(f"done in {time() - start_time:.2f} sec ({comments_checked} comments checked)")
+	print(f"done in {time() - start_time:.2f} sec ({comments_checked} comments checked) ({replies_checked} replies checked)")
 
 def main():
 
