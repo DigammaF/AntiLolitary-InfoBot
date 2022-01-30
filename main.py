@@ -76,7 +76,7 @@ def collect_protected_users(bot, protected_users):
 
 def is_comment_propaganda(text):
 
-	return all(word in text for word in ("warning", "active", "antilolitary", "pedophile"))
+	return all(word in text for word in ("active", "antilolitary", "pedophil"))
 
 def check_on_user(redditor, answered_comments):
 
