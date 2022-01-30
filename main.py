@@ -71,6 +71,33 @@ def is_comment_propaganda(text):
 
 	return all(word in text for word in ("warning", "active", "antilolitary", "pedophile"))
 
+def check_on_user(redditor):
+
+	comments_checked = 0
+	replies_checked = 0
+
+	try:
+		for comment in redditor.comments.top("day"):
+
+			comments_checked += 1
+			comment.reply_sort = "new"
+
+			try:
+				comment.refresh()
+
+			except praw.exceptions.ClientException:
+				continue
+				
+			for reply in comment.replies:
+				replies_checked += 1
+				if is_comment_propaganda(reply.body.lower()):
+					print(f"detected propaganda: {reply.body}")
+
+	except prawcore.exceptions.Forbidden:
+		pass
+
+	return comments_checked, replies_checked
+
 def counter_propaganda(bot, protected_users):
 
 	print("scanning for propaganda...")
@@ -82,32 +109,16 @@ def counter_propaganda(bot, protected_users):
 		
 		print(f"checking user {user} {n}/{len(protected_users)}")
 		redditor = praw.models.Redditor(bot, user)
-
-		try:
-			for comment in redditor.comments.top("week"):
-
-				comments_checked += 1
-				comment.reply_sort = "new"
-
-				try:
-					comment.refresh()
-
-				except praw.exceptions.ClientException:
-					continue
-				
-				for reply in comment.replies:
-					replies_checked += 1
-					if is_comment_propaganda(reply.body.lower()):
-						print(f"detected propaganda: {reply.body}")
-
-		except prawcore.exceptions.Forbidden:
-			continue
+		c, r = check_on_user(redditor)
+		comments_checked += c
+		replies_checked += r
 
 	print(f"done in {time() - start_time:.2f} sec ({comments_checked} comments checked) ({replies_checked} replies checked)")
 
 def main():
 
 	with ProtectedUsers.load() as protected_users:
+
 		try:
 			while True:
 				collect_protected_users(bot, protected_users)
