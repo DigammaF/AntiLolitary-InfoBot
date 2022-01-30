@@ -9,6 +9,9 @@ from itertools import chain
 
 from bot import bot
 
+with open("information.txt", "r", encoding="utf-8") as f:
+	information_text = f.read()
+
 class ProtectedUsers:
 
 	file_path = Path("protected_users.txt")
@@ -50,6 +53,10 @@ class ProtectedUsers:
 	def __len__(self):
 		return len(self.users)
 
+class AnsweredComments(ProtectedUsers):
+
+	file_path = Path("answered_comments.txt")
+
 def collect_protected_users(bot, protected_users):
 
 	print("scanning for users to protect...")
@@ -71,10 +78,11 @@ def is_comment_propaganda(text):
 
 	return all(word in text for word in ("warning", "active", "antilolitary", "pedophile"))
 
-def check_on_user(redditor):
+def check_on_user(redditor, answered_comments):
 
 	comments_checked = 0
 	replies_checked = 0
+	propaganda_found = 0
 
 	try:
 		for comment in redditor.comments.top("day"):
@@ -89,43 +97,53 @@ def check_on_user(redditor):
 				continue
 				
 			for reply in comment.replies:
+
 				replies_checked += 1
-				if is_comment_propaganda(reply.body.lower()):
+
+				if is_comment_propaganda(reply.body.lower()) and (reply.id not in answered_comments):
+
+					propaganda_found += 1
 					print(f"detected propaganda: {reply.body}")
+					print(reply.permalink)
+					answered_comments.add(reply.id)
+					reply.reply(information_text)
 
 	except prawcore.exceptions.Forbidden:
 		pass
 
-	return comments_checked, replies_checked
+	return comments_checked, replies_checked, propaganda_found
 
-def counter_propaganda(bot, protected_users):
+def counter_propaganda(bot, protected_users, answered_comments):
 
 	print("scanning for propaganda...")
 	start_time = time()
 	comments_checked = 0
 	replies_checked = 0
+	propaganda_found = 0
 
 	for n, user in enumerate(protected_users, 1):
 		
-		print(f"checking user {user} {n}/{len(protected_users)}")
+		#print(f"checking user {user} {n}/{len(protected_users)}")
 		redditor = praw.models.Redditor(bot, user)
-		c, r = check_on_user(redditor)
+		c, r, p = check_on_user(redditor, answered_comments)
 		comments_checked += c
 		replies_checked += r
+		propaganda_found += p
 
-	print(f"done in {time() - start_time:.2f} sec ({comments_checked} comments checked) ({replies_checked} replies checked)")
+	print(f"done in {(time() - start_time)/60:.2f} min ({comments_checked} comments checked) ({replies_checked} replies checked) ({propaganda_found} propaganda found)")
 
 def main():
 
 	with ProtectedUsers.load() as protected_users:
+		with AnsweredComments.load() as answered_comments:
 
-		try:
-			while True:
-				collect_protected_users(bot, protected_users)
-				counter_propaganda(bot, protected_users)
+			try:
+				while True:
+					collect_protected_users(bot, protected_users)
+					counter_propaganda(bot, protected_users, answered_comments)
 
-		except KeyboardInterrupt:
-			print("bye!")
+			except KeyboardInterrupt:
+				print("bye!")
 
 if __name__ == "__main__":
 	main()
