@@ -68,15 +68,19 @@ def collect_protected_users(bot, protected_users):
 
 	for obj in chain(bot.subreddit("antilolitary").new(), bot.subreddit("antilolitary").comments()):
 
-		if obj.author.name not in protected_users:
-			print(f" adding {obj.author.name}")
-			protected_users.add(obj.author.name)
+		try:
+			if obj.author.name not in protected_users:
+				print(f" adding {obj.author.name}")
+				protected_users.add(obj.author.name)
+
+		except AttributeError:
+			pass
 
 	print(f"done in {time() - start_time:.2f} sec")
 
 def is_comment_propaganda(text):
 
-	return all(word in text for word in ("active", "antilolitary", "pedophil"))
+	return all(word in text for word in ("active", "antilolitary", "pedo"))
 
 def check_on_user(redditor, answered_comments):
 
@@ -108,7 +112,7 @@ def check_on_user(redditor, answered_comments):
 					answered_comments.add(reply.id)
 					reply.reply(information_text)
 
-	except prawcore.exceptions.Forbidden:
+	except (prawcore.exceptions.Forbidden, prawcore.exceptions.NotFound):
 		pass
 
 	return comments_checked, replies_checked, propaganda_found
